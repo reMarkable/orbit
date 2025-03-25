@@ -17,8 +17,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/hedlund/orbit/pkg/auth"
-	"github.com/hedlund/orbit/pkg/router"
+	"github.com/reMarkable/orbit/pkg/auth"
+	"github.com/reMarkable/orbit/pkg/router"
 )
 
 var (

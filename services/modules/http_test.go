@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hedlund/orbit/pkg/expect"
-	"github.com/hedlund/orbit/pkg/router"
+	"github.com/reMarkable/orbit/pkg/expect"
+	"github.com/reMarkable/orbit/pkg/router"
 )
 
 func TestListVersions(t *testing.T) {

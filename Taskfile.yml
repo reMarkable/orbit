@@ -26,7 +26,7 @@ tasks:
   build:docker:
     desc: Build Docker container image
     cmds:
-      - docker build --file build/Dockerfile -t hedlund/orbit .
+      - docker build --file build/Dockerfile -t remarkable/orbit .
 
   generate:cert:
     desc: Generate SSL/TLS certificate for localhost

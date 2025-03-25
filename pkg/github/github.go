@@ -15,7 +15,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hedlund/orbit/pkg/auth"
+	"github.com/reMarkable/orbit/pkg/auth"
 )
 
 const (
