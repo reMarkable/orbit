@@ -8,8 +8,7 @@ metadata:
     "helm.sh/hook": test
 spec:
   containers:
-    - name: wget
-      image: busybox
-      command: ['wget']
-      args: ['{{ include "orbit.fullname" . }}:{{ .Values.service.port }}']
+    - name: curl
+      image: curlimages/curl
+      args: [--verbose, --fail, --silent, {{ include "orbit.fullname" . }}:{{ .Values.service.port }}/.well-known/terraform.json]
   restartPolicy: Never
