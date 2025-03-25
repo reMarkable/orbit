@@ -2,6 +2,6 @@ apiVersion: v2
 name: orbit
 description: A small proxy to turn a Github mono-repo into a Terraform module registry.
 type: application
-version: 0.0.1
-# FIXME: Update version number when first version is released
+version: 0.0.2
+# FIXME: Set version number when first version is released
 appVersion: "0.0.0"
