@@ -16,9 +16,7 @@ import (
 	"time"
 )
 
-var (
-	timeoutWiggleRoom = 300 * time.Millisecond
-)
+var timeoutWiggleRoom = 300 * time.Millisecond
 
 type Logger interface {
 	Error(msg string, args ...any)
@@ -41,10 +39,19 @@ type Config struct {
 		CertFile string `envconfig:"TLS_CERT_FILE"`
 		KeyFile  string `envconfig:"TLS_KEY_FILE"`
 	}
+	Metrics struct {
+		Enabled bool `envconfig:"METRICS_ENABLED" default:"false"`
+		Port    int  `envconfig:"METRICS_PORT" default:"9090"`
+	}
 }
 
 func (c *Config) ListenAddr() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
+}
+
+func (c *Config) MetricsListenAddr() string {
+	// Metrics listener typically binds to the same host as the main server
+	return fmt.Sprintf("%s:%d", c.Host, c.Metrics.Port)
 }
 
 func (c *Config) ReadTimeout() time.Duration {
@@ -73,6 +80,7 @@ func Start(cfg Config, log Logger, h http.Handler, listening ...chan net.Addr) e
 	}
 
 	ln, err := net.Listen("tcp", cfg.ListenAddr())
+	var metricsLn net.Listener
 	if err != nil {
 		log.Error("listen error", "err", err)
 		return err
@@ -91,12 +99,33 @@ func Start(cfg Config, log Logger, h http.Handler, listening ...chan net.Addr) e
 		ReadHeaderTimeout: cfg.Timeout.ReadHeader,
 		WriteTimeout:      cfg.WriteTimeout(),
 	}
+	var metricsSrv *http.Server
+	if cfg.Metrics.Enabled {
+		metricsLn, err = net.Listen("tcp", cfg.MetricsListenAddr())
+		if err != nil {
+			ln.Close() // Close the main listener if metrics listener fails
+			log.Error("metrics listen error", "err", err)
+			return err
+		}
+		log.Info("metrics server listening", "addr", metricsLn.Addr().String())
+		metricsSrv = &http.Server{
+			Addr:              cfg.MetricsListenAddr(),
+			Handler:           http.DefaultServeMux,
+			IdleTimeout:       cfg.Timeout.Idle,       // Reuse main timeouts
+			ReadTimeout:       cfg.ReadTimeout(),      // Reuse main timeouts
+			ReadHeaderTimeout: cfg.Timeout.ReadHeader, // Reuse main timeouts
+			WriteTimeout:      cfg.WriteTimeout(),     // Reuse main timeouts
+		}
+	}
 
 	errs := make(chan error)
 	if cfg.TLS.Enabled {
 		go serveTLS(srv, ln, cfg.TLS.CertFile, cfg.TLS.KeyFile, errs)
 	} else {
 		go serve(srv, ln, errs)
+	}
+	if metricsSrv != nil {
+		go serve(metricsSrv, metricsLn, errs)
 	}
 
 	done := make(chan os.Signal, 1)
@@ -116,6 +145,11 @@ func Start(cfg Config, log Logger, h http.Handler, listening ...chan net.Addr) e
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Error("shutdown error", "err", err)
 		return err
+	}
+	if metricsSrv != nil {
+		if err := metricsSrv.Shutdown(ctx); err != nil {
+			log.Error("metrics shutdown error", "err", err)
+		}
 	}
 	return nil
 }

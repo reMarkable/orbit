@@ -66,6 +66,20 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
+metrics:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    additionalLabels: {}
+    namespace: ""
+    interval: 30s
+    scrapeTimeout: 10s
+    metricRelabelings: []
+    relabelings: []
+  service:
+    annotations: {}
+    type: ClusterIP
+    port: 9090
 resources: {}
 
 autoscaling:

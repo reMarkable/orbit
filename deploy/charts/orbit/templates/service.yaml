@@ -13,3 +13,25 @@ spec:
       name: http
   selector:
     {{- include "orbit.selectorLabels" . | nindent 4 }}
+{{ if .Values.metrics.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "orbit.fullname" . }}-metrics
+  labels:
+    {{- include "orbit.labels" . | nindent 4 }}
+  {{- with .Values.metrics.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.metrics.service.type }}
+  ports:
+    - port: {{ .Values.metrics.service.port }}
+      targetPort: {{ .Values.metrics.service.port }}
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "orbit.selectorLabels" . | nindent 4 }}
+{{ end }}
