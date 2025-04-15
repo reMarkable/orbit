@@ -50,7 +50,7 @@ func Process(spec any, prefix ...string) error {
 
 func processStruct(prefix string, spec reflect.Value) error {
 	types := spec.Type()
-	for n := 0; n < spec.NumField(); n++ {
+	for n := range spec.NumField() {
 		field := spec.Field(n)
 		if !field.CanSet() {
 			continue

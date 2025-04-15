@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/reMarkable/orbit/pkg/auth"
@@ -163,10 +164,8 @@ func (s *Service) validRepo(owner, repo string) error {
 	}
 
 	if repos, ok := s.cfg.Repositories[owner]; ok {
-		for _, r := range repos {
-			if r == repo {
-				return nil
-			}
+		if slices.Contains(repos, repo) {
+			return nil
 		}
 	}
 

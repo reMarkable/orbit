@@ -47,7 +47,7 @@ type Repository interface {
 	ProxyDownload(ctx context.Context, owner, repo, module, version string, w io.Writer) error
 }
 
-func NewHTTP(cfg Config, log Logger, r Repository) (*Handler, error) {
+func NewHTTP(cfg Config, log Logger, r Repository, mh *MetricsHandler) (*Handler, error) {
 	c, err := aes.NewCipher(cfg.ProxySecret)
 	if err != nil {
 		return nil, err
@@ -62,6 +62,7 @@ func NewHTTP(cfg Config, log Logger, r Repository) (*Handler, error) {
 		cipher: gcm,
 		log:    log,
 		now:    time.Now,
+		mh:     mh,
 		repo:   r,
 	}, nil
 }
@@ -70,11 +71,15 @@ type Handler struct {
 	cfg    Config
 	cipher Cipher
 	log    Logger
+	mh     *MetricsHandler
 	now    func() time.Time
 	repo   Repository
 }
 
 func (h *Handler) ListVersions(w http.ResponseWriter, r *http.Request) {
+	if h.mh != nil {
+		h.mh.IncrementRequestCount("ListVersions")
+	}
 	var (
 		ctx       = r.Context()
 		namespace = router.GetParameter(ctx, "namespace")
@@ -98,6 +103,9 @@ func (h *Handler) ListVersions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DownloadURL(w http.ResponseWriter, r *http.Request) {
+	if h.mh != nil {
+		h.mh.IncrementRequestCount("DownloadURL")
+	}
 	downloadURL := "./proxy?archive=tar.gz"
 	if token := auth.GetToken(r.Context(), ""); token != "" {
 		encoded, err := h.encodeToken(token)
@@ -122,6 +130,7 @@ func (h *Handler) ProxyDownload(w http.ResponseWriter, r *http.Request) {
 		token     = r.URL.Query().Get("token")
 	)
 
+	h.mh.IncrementRequestCount("ProxyDownload")
 	if token != "" {
 		var err error
 		token, err = h.decodeToken(token)
@@ -131,6 +140,9 @@ func (h *Handler) ProxyDownload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		ctx = auth.WithToken(ctx, token)
+	}
+	if h.mh != nil {
+		h.mh.IncrementDownloadCount(namespace, name)
 	}
 
 	// w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s-%s-%s-%s.tar.gz", owner, repo, module, version))

@@ -51,7 +51,11 @@ func main() {
 		)
 	}
 
-	h, err := modules.NewHTTP(cfg.Modules, log, repo)
+	mh, err := modules.NewMetricsHandler(log)
+	if err != nil {
+		panic(err)
+	}
+	h, err := modules.NewHTTP(cfg.Modules, log, repo, mh)
 	if err != nil {
 		panic(err)
 	}
@@ -63,6 +67,8 @@ func main() {
 	r.Get("/v1/modules/:namespace/:name/:system/:version/download", h.DownloadURL)
 	r.Get("/v1/modules/:namespace/:name/:system/:version/proxy", h.ProxyDownload)
 	r.Get("/.well-known/terraform.json", discovery)
+
+	http.DefaultServeMux.HandleFunc("GET /metrics", mh.Metrics)
 
 	if err := server.Start(cfg.Server, log, r); err != nil {
 		panic(err)

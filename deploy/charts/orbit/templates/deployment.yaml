@@ -54,19 +54,25 @@ spec:
               value: "{{ .Values.github.repositories }}"
             {{- if .Values.cache.enabled }}
             - name: CACHE_ENABLED
-              value: true
+              value: "true"
             - name: CACHE_PATH
-              value: {{ .Values.cache.path }}
+              value: "{{ .Values.cache.path }}"
             - name: CACHE_EXPIRY
-              value: {{ .Values.cache.expiry }}
-          {{- end }}
+              value: "{{ .Values.cache.expiry }}"
+            {{- end }}
+            {{- if .Values.metrics.enabled }}
+            - name: METRICS_ENABLED
+              value: "true"
+            - name: METRICS_PORT
+              value: "{{ .Values.metrics.service.port }}"
+            {{- end }}
           {{- with .Values.extraEnvs }}
           {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- if .Values.github.token}}
           envFrom: 
             - secretRef:
-              name: {{ include "orbit.fullname "}}
+                name: {{ include "orbit.fullname" .}}
           {{- else if .Values.github.token_secret }}
           envFrom: 
             - secretRef:
