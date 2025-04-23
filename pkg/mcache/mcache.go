@@ -13,6 +13,8 @@ const (
 	NoExpiration time.Duration = -1
 )
 
+// New creates a new Cache instance with the specified expiration duration.
+// If expiration is set to NoExpiration, items will not expire.
 func New[K comparable, V any](expiration time.Duration) *Cache[K, V] {
 	return &Cache[K, V]{
 		expiry: expiration,
@@ -28,9 +30,11 @@ type Cache[K comparable, V any] struct {
 	now    func() time.Time
 }
 
+// Get retrieves the value associated with the given key from the cache.
+// Returns the value and true if the key exists and is not expired, otherwise returns the zero value and false.
 func (c *Cache[K, V]) Get(key K) (V, bool) {
 	c.mu.RLock()
-	defer c.mu.Unlock()
+	defer c.mu.RUnlock()
 
 	if item, ok := c.items[key]; ok {
 		now := c.now().UnixNano()
@@ -43,6 +47,8 @@ func (c *Cache[K, V]) Get(key K) (V, bool) {
 	return empty, false
 }
 
+// Set adds a key-value pair to the cache with an optional expiration duration.
+// If no duration is provided, the default cache expiration is used.
 func (c *Cache[K, V]) Set(key K, value V, d ...time.Duration) {
 	expiry := c.expiry
 	if len(d) > 0 {
@@ -62,6 +68,8 @@ func (c *Cache[K, V]) Set(key K, value V, d ...time.Duration) {
 	}
 }
 
+// Delete removes the key-value pair associated with the given key from the cache.
+// Returns true if the key existed and was deleted, otherwise false.
 func (c *Cache[K, V]) Delete(key K) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -73,6 +81,7 @@ func (c *Cache[K, V]) Delete(key K) bool {
 	return false
 }
 
+// Count returns the number of items currently stored in the cache.
 func (c *Cache[K, V]) Count() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -80,6 +89,8 @@ func (c *Cache[K, V]) Count() int {
 	return len(c.items)
 }
 
+// Cleanup removes all expired items from the cache.
+// Returns the number of items that were removed.
 func (c *Cache[K, V]) Cleanup() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -95,6 +106,7 @@ func (c *Cache[K, V]) Cleanup() int {
 	return count
 }
 
+// Flush removes all items from the cache, regardless of expiration.
 func (c *Cache[K, V]) Flush() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -102,22 +114,27 @@ func (c *Cache[K, V]) Flush() {
 	c.items = make(map[K]item[V])
 }
 
+// StartCleanupLoop starts a background loop that periodically calls the Cleanup method on the cache.
+// The loop runs at the specified interval and can be stopped by calling the returned stop function.
 func StartCleanupLoop(c interface{ Cleanup() int }, interval time.Duration) (stop func()) {
 	var wg sync.WaitGroup
 	sc := make(chan struct{})
-	go loop(c.Cleanup, interval, sc, &wg)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		loop(c.Cleanup, interval, sc)
+	}()
+
 	return func() {
 		close(sc)
 		wg.Wait()
 	}
 }
 
-func loop(cleanup func() int, d time.Duration, stop chan struct{}, wg *sync.WaitGroup) {
+func loop(cleanup func() int, d time.Duration, stop chan struct{}) {
 	ticker := time.NewTicker(d)
 	defer ticker.Stop()
-
-	wg.Add(1)
-	defer wg.Done()
 
 	for {
 		select {
