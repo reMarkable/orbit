@@ -142,7 +142,7 @@ func (h *Handler) ProxyDownload(w http.ResponseWriter, r *http.Request) {
 		ctx = auth.WithToken(ctx, token)
 	}
 	if h.mh != nil {
-		h.mh.IncrementDownloadCount(namespace, name)
+		h.mh.IncrementDownloadCount(namespace, name, version)
 	}
 
 	// w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s-%s-%s-%s.tar.gz", owner, repo, module, version))
