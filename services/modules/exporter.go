@@ -17,15 +17,27 @@ type (
 	}
 )
 
-type MetricType string
+type MetricType int
 
 const (
-	MetricTypeCounter   MetricType = "counter"
-	MetricTypeGauge     MetricType = "gauge"
-	MetricTypeHistogram MetricType = "histogram"
-	MetricTypeSummary   MetricType = "summary"
-	MetricTypeUntyped   MetricType = "untyped"
+	MetricTypeCounter MetricType = iota
+	MetricTypeGauge
+	MetricTypeHistogram
+	MetricTypeSummary
+	MetricTypeUntyped
 )
+
+var metricTypeName = map[MetricType]string{
+	MetricTypeCounter:   "counter",
+	MetricTypeGauge:     "gauge",
+	MetricTypeHistogram: "histogram",
+	MetricTypeSummary:   "summary",
+	MetricTypeUntyped:   "untyped",
+}
+
+func (mt MetricType) String() string {
+	return metricTypeName[mt]
+}
 
 func NewMetricsHandler(log Logger) (*MetricsHandler, error) {
 	m := Metrics{
@@ -38,11 +50,11 @@ func NewMetricsHandler(log Logger) (*MetricsHandler, error) {
 func (h *MetricsHandler) Metrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	w.WriteHeader(http.StatusOK)
-	h.writeMeta(w, "Request Count", "Total number of requests received", "request_count")
+	h.writeMeta(w, MetricTypeCounter, "Total number of requests received", "request_count")
 	for endpoint, count := range h.metrics.requestCount {
 		h.writeMetrics(w, "request_count", map[string]string{"endpoint": endpoint}, count)
 	}
-	h.writeMeta(w, "Download Count", "Total number of downloads", "download_count")
+	h.writeMeta(w, MetricTypeCounter, "Total number of downloads", "download_count")
 	for module, count := range h.metrics.downloadCount {
 		h.writeMetrics(w, "download_count", map[string]string{"module": module}, count)
 	}
@@ -71,8 +83,4 @@ func (h *MetricsHandler) IncrementRequestCount(endpoint string) {
 
 func (h *MetricsHandler) IncrementDownloadCount(namespace, name string) {
 	h.metrics.downloadCount[namespace+"/"+name]++
-}
-
-func numByte(i int) []byte {
-	return fmt.Appendf(nil, "%d", i)
 }

@@ -54,3 +54,24 @@ func containsMetric(body, metric, labelKey, labelValue string, value int) bool {
 	expected := metric + "{" + labelKey + "=\"" + labelValue + "\"} " + fmt.Sprintf("%d", value)
 	return strings.Contains(body, expected)
 }
+
+func TestMetricsHandler_Metrics_Type(t *testing.T) {
+	logger := MockLogger{}
+	handler, _ := NewMetricsHandler(logger)
+
+	handler.IncrementRequestCount("/test")
+	handler.IncrementDownloadCount("namespace", "module")
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	w := httptest.NewRecorder()
+
+	handler.Metrics(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "# TYPE request_count counter") {
+		t.Error("expected metric type 'counter' for request_count")
+	}
+	if !strings.Contains(body, "# TYPE download_count counter") {
+		t.Error("expected metric type 'counter' for download_count")
+	}
+}
