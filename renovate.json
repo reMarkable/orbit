@@ -1,0 +1,64 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "group:allNonMajor",
+    "customManagers:dockerfileVersions",
+    "customManagers:githubActionsVersions",
+    "customManagers:helmChartYamlAppVersions"
+  ],
+  "vulnerabilityAlerts": {
+    "groupName": "vulnerabilityAlerts",
+    "enabled": true,
+    "schedule": [],
+    "prCreation": "immediate",
+    "labels": [
+      "renovate"
+    ]
+  },
+  "osvVulnerabilityAlerts": true,
+  "configMigration": true,
+  "packageRules": [
+    {
+      "description": "Update Docker dependencies, including base images",
+      "matchDatasources": [
+        "docker"
+      ],
+      "groupName": "docker dependencies"
+    },
+    {
+      "description": "Update golang docker base images daily",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "golang"
+      ],
+      "groupName": "golang dockerfile base images",
+      "schedule": [
+        "before 07:00"
+      ]
+    },
+    {
+      "description": "Update orbit image version right away",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "orbit"
+      ],
+      "schedule": ["at any time"]
+    }
+  ],
+  "postUpdateOptions": [
+    "gomodTidy",
+    "gomodUpdateImportPaths"
+  ],
+  "pre-commit": {
+    "enabled": true
+  },
+  "schedule": [
+    "before 07:00 on the first day of the month"
+  ],
+  "timezone": "Europe/Oslo"
+}
