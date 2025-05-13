@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 )
 
 type (
@@ -56,7 +57,8 @@ func (h *MetricsHandler) Metrics(w http.ResponseWriter, r *http.Request) {
 	}
 	h.writeMeta(w, MetricTypeCounter, "Total number of downloads", "download_count")
 	for module, count := range h.metrics.downloadCount {
-		h.writeMetrics(w, "download_count", map[string]string{"module": module}, count)
+		meta := strings.Split(module, "/")
+		h.writeMetrics(w, "download_count", map[string]string{"module": meta[1], "namespace": meta[0], "version": meta[2]}, count)
 	}
 }
 
@@ -81,6 +83,6 @@ func (h *MetricsHandler) IncrementRequestCount(endpoint string) {
 	h.metrics.requestCount[endpoint]++
 }
 
-func (h *MetricsHandler) IncrementDownloadCount(namespace, name string) {
-	h.metrics.downloadCount[namespace+"/"+name]++
+func (h *MetricsHandler) IncrementDownloadCount(namespace string, name string, version string) {
+	h.metrics.downloadCount[namespace+"/"+name+"/"+version]++
 }
