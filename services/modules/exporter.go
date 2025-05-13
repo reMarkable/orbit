@@ -50,13 +50,13 @@ func NewMetricsHandler(log Logger) (*MetricsHandler, error) {
 func (h *MetricsHandler) Metrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	w.WriteHeader(http.StatusOK)
-	h.writeMeta(w, MetricTypeCounter, "Total number of requests received", "request_count")
+	h.writeMeta(w, MetricTypeCounter, "Total number of requests received", "orbit_request_count")
 	for endpoint, count := range h.metrics.requestCount {
-		h.writeMetrics(w, "request_count", map[string]string{"endpoint": endpoint}, count)
+		h.writeMetrics(w, "orbit_request_count", map[string]string{"endpoint": endpoint}, count)
 	}
-	h.writeMeta(w, MetricTypeCounter, "Total number of downloads", "download_count")
+	h.writeMeta(w, MetricTypeCounter, "Total number of downloads", "orbit_download_count")
 	for module, count := range h.metrics.downloadCount {
-		h.writeMetrics(w, "download_count", map[string]string{"module": module}, count)
+		h.writeMetrics(w, "orbit_download_count", map[string]string{"module": module}, count)
 	}
 }
 

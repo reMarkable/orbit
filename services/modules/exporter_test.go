@@ -42,10 +42,10 @@ func TestMetricsHandler_Metrics(t *testing.T) {
 	}
 
 	body := w.Body.String()
-	if !containsMetric(body, "request_count", "endpoint", "/test", 1) {
+	if !containsMetric(body, "orbit_request_count", "endpoint", "/test", 1) {
 		t.Error("expected request_count metric for /test")
 	}
-	if !containsMetric(body, "download_count", "module", "namespace/module", 1) {
+	if !containsMetric(body, "orbit_download_count", "module", "namespace/module", 1) {
 		t.Error("expected download_count metric for namespace/module")
 	}
 }
@@ -68,10 +68,10 @@ func TestMetricsHandler_Metrics_Type(t *testing.T) {
 	handler.Metrics(w, req)
 
 	body := w.Body.String()
-	if !strings.Contains(body, "# TYPE request_count counter") {
-		t.Error("expected metric type 'counter' for request_count")
+	if !strings.Contains(body, "# TYPE orbit_request_count counter") {
+		t.Error("expected metric type 'counter' for orbit_request_count")
 	}
-	if !strings.Contains(body, "# TYPE download_count counter") {
-		t.Error("expected metric type 'counter' for download_count")
+	if !strings.Contains(body, "# TYPE orbit_download_count counter") {
+		t.Error("expected metric type 'counter' for orbit_download_count")
 	}
 }
