@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"slices"
@@ -70,7 +71,11 @@ func (s *Service) ListVersions(ctx context.Context, system, repo, module string)
 			Name string `json:"name"`
 		}
 		err = json.NewDecoder(res).Decode(&tags)
-		res.Close()
+		cerr := res.Close()
+		if cerr != nil {
+			return nil, fmt.Errorf("closing response: %w", cerr)
+		}
+
 		if err != nil {
 			return nil, fmt.Errorf("decoding response: %w", err)
 		}
@@ -100,20 +105,36 @@ func (s *Service) ProxyDownload(ctx context.Context, system, repo, module, versi
 	if err != nil {
 		return err
 	}
-	defer body.Close()
+	defer func() {
+		if err := body.Close(); err != nil {
+			slog.Warn("error closing response body", "err", err)
+		}
+	}()
 
 	zr, err := gzip.NewReader(body)
 	if err != nil {
 		return fmt.Errorf("read gzip: %w", err)
 	}
-	defer zr.Close()
+	defer func() {
+		if err := zr.Close(); err != nil {
+			slog.Warn("error closing gzip reader", "err", err)
+		}
+	}()
 
 	zw := gzip.NewWriter(w)
-	defer zw.Close()
+	defer func() {
+		if err := zw.Close(); err != nil {
+			slog.Warn("error closing gzip writer:", "err", err)
+		}
+	}()
 
 	tr := tar.NewReader(zr)
 	tw := tar.NewWriter(zw)
-	defer tw.Close()
+	defer func() {
+		if err := tw.Close(); err != nil {
+			slog.Warn("error closing tar writer:", "err", err)
+		}
+	}()
 
 	prefix := fmt.Sprintf("^%s-%s-[^/]+/%s/(.+)", owner, repo, module)
 	if err := copy(prefix, tw, tr); err != nil {
@@ -196,13 +217,19 @@ func copy(prefix string, w *tar.Writer, r *tar.Reader) error {
 			if err := w.WriteHeader(hdr); err != nil {
 				return fmt.Errorf("writing header: %w", err)
 			}
-			io.Copy(w, r)
+			if _, err := io.Copy(w, r); err != nil {
+				slog.Error("error copying tar entry", "name", hdr.Name, "err", err)
+			}
 		}
 	}
 }
 
 func slurp(r io.ReadCloser) string {
-	defer r.Close()
+	defer func() {
+		if err := r.Close(); err != nil {
+			slog.Warn("error closing response body", "err", err)
+		}
+	}()
 
 	b, err := io.ReadAll(r)
 	if err != nil {
