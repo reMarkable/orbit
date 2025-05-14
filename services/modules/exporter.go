@@ -66,7 +66,9 @@ func (h *MetricsHandler) Metrics(w http.ResponseWriter, r *http.Request) {
 
 func (h *MetricsHandler) writeMeta(w http.ResponseWriter, metricType MetricType, help string, metric string) {
 	meta := fmt.Sprintf("# HELP %s %s\n# TYPE %s %s\n", metric, help, metric, metricType)
-	w.Write([]byte(meta))
+	if _, err := w.Write([]byte(meta)); err != nil {
+		slog.Error("write error", "err", err)
+	}
 }
 
 func (h *MetricsHandler) writeMetrics(w http.ResponseWriter, metric string, labels map[string]string, value int) {

@@ -14,7 +14,9 @@ type Config struct {
 func TestProcess_WithDefaults(t *testing.T) {
 	os.Clearenv() // Ensure no environment variables are set
 
-	os.Setenv("HOST", "localhost")
+	if err := os.Setenv("HOST", "localhost"); err != nil {
+		panic(err)
+	}
 	var cfg Config
 	err := Process(&cfg)
 	if err != nil {
@@ -30,8 +32,12 @@ func TestProcess_WithDefaults(t *testing.T) {
 }
 
 func TestProcess_WithEnvironmentVariables(t *testing.T) {
-	os.Setenv("PORT", "9090")
-	os.Setenv("HOST", "localhost")
+	if err := os.Setenv("PORT", "9090"); err != nil {
+		panic(err)
+	}
+	if err := os.Setenv("HOST", "localhost"); err != nil {
+		panic(err)
+	}
 	defer os.Clearenv()
 
 	var cfg Config
@@ -84,7 +90,9 @@ func TestProcess_UnsupportedFieldType(t *testing.T) {
 	}
 
 	os.Clearenv()
-	os.Setenv("UNSUPPORTED", "1+2i")
+	if err := os.Setenv("UNSUPPORTED", "1+2i"); err != nil {
+		panic(err)
+	}
 
 	var cfg UnsupportedConfig
 	err := Process(&cfg)
@@ -120,7 +128,9 @@ func TestProcess_SliceField(t *testing.T) {
 	}
 
 	os.Clearenv()
-	os.Setenv("VALUES", "one,two,three")
+	if err := os.Setenv("VALUES", "one,two,three"); err != nil {
+		panic(err)
+	}
 
 	var cfg SliceConfig
 	err := Process(&cfg)
@@ -145,7 +155,9 @@ func TestProcess_MapField(t *testing.T) {
 	}
 
 	os.Clearenv()
-	os.Setenv("VALUES", "key1:value1;key2:value2")
+	if err := os.Setenv("VALUES", "key1:value1;key2:value2"); err != nil {
+		panic(err)
+	}
 
 	var cfg MapConfig
 	err := Process(&cfg)
