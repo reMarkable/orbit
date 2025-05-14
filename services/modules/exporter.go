@@ -3,7 +3,9 @@ package modules
 import (
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
+	"slices"
 	"strings"
 )
 
@@ -69,8 +71,8 @@ func (h *MetricsHandler) writeMeta(w http.ResponseWriter, metricType MetricType,
 
 func (h *MetricsHandler) writeMetrics(w http.ResponseWriter, metric string, labels map[string]string, value int) {
 	meta := fmt.Sprintf("%s{", metric)
-	for k, v := range labels {
-		meta += fmt.Sprintf("%s=\"%s\",", k, v)
+	for _, k := range slices.Sorted(maps.Keys(labels)) {
+		meta += fmt.Sprintf("%s=\"%s\",", k, labels[k])
 	}
 	meta = meta[:len(meta)-1] + fmt.Sprintf("} %d\n", value)
 	_, err := w.Write([]byte(meta))
