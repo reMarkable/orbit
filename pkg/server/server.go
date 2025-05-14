@@ -103,7 +103,10 @@ func Start(cfg Config, log Logger, h http.Handler, listening ...chan net.Addr) e
 	if cfg.Metrics.Enabled {
 		metricsLn, err = net.Listen("tcp", cfg.MetricsListenAddr())
 		if err != nil {
-			ln.Close() // Close the main listener if metrics listener fails
+			// Close the main listener if metrics listener fails
+			if err := ln.Close(); err != nil {
+				log.Error("close error", "err", err)
+			}
 			log.Error("metrics listen error", "err", err)
 			return err
 		}

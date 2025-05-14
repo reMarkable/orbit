@@ -77,5 +77,7 @@ func main() {
 
 func discovery(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-	w.Write([]byte(`{"modules.v1":"/v1/modules"}`))
+	if _, err := w.Write([]byte(`{"modules.v1":"/v1/modules"}`)); err != nil {
+		slog.Error("failed to write response", "error", err)
+	}
 }
