@@ -2,9 +2,10 @@ package modules
 
 import (
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -43,28 +44,24 @@ func TestMetricsHandler_Metrics(t *testing.T) {
 	}
 
 	body := w.Body.String()
-	if !containsMetric(body, "request_count", map[string]string{"endpoint": "/test"}, 1) {
-		t.Error("expected request_count metric for /test")
+	requestCountExpected := formatMetric("request_count", map[string]string{"endpoint": "/test"}, 1)
+	if !strings.Contains(body, requestCountExpected) {
+		t.Errorf("expected '%s' for request_count metric for /test, got: %s", requestCountExpected, body)
 	}
-	if !containsMetric(body, "download_count", map[string]string{"namespace": "namespace", "module": "module", "version": "0.1"}, 1) {
-		t.Error("expected download_count metric for namespace/module, got: ", body)
+	downloadCountExpected := formatMetric("download_count", map[string]string{"namespace": "namespace", "module": "module", "version": "0.1"}, 1)
+	if !strings.Contains(body, downloadCountExpected) {
+		t.Errorf("expected %s for namespace/module in response body, got: %s", downloadCountExpected, body)
 	}
 }
 
-func containsMetric(body, metric string, labels map[string]string, value int) bool {
-	var keys []string
+func formatMetric(metric string, labels map[string]string, value int) string {
 	var labelParts []string
-	for k := range labels {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
+	for _, k := range slices.Sorted(maps.Keys(labels)) {
 		v := labels[k]
 		labelParts = append(labelParts, fmt.Sprintf("%s=\"%s\"", k, v))
 	}
 	labelStr := strings.Join(labelParts, ",")
-	expected := metric + "{" + labelStr + "} " + fmt.Sprintf("%d", value)
-	return strings.Contains(body, expected)
+	return metric + "{" + labelStr + "} " + fmt.Sprintf("%d", value)
 }
 
 func TestMetricsHandler_Metrics_Type(t *testing.T) {
