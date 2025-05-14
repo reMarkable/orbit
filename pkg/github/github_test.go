@@ -110,7 +110,11 @@ func TestService_ProxyDownload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create gzip reader: %v", err)
 	}
-	defer gz.Close()
+	defer func() {
+		if err := gz.Close(); err != nil {
+			panic(err)
+		}
+	}()
 
 	var tarBuf bytes.Buffer
 	if _, err := io.Copy(&tarBuf, gz); err != nil {

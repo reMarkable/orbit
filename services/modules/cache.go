@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"time"
 )
@@ -69,7 +70,11 @@ func (c *Cache) ProxyDownload(ctx context.Context, owner, repo, module, version 
 		// from the repository without caching.
 		c.log.Error("failed to create cached file", "err", err)
 	} else {
-		defer cw.Close()
+		defer func() {
+			if err := cw.Close(); err != nil {
+				slog.Error("failed to close cached file", "err", err)
+			}
+		}()
 		w = io.MultiWriter(w, cw)
 	}
 	return c.repo.ProxyDownload(ctx, owner, repo, module, version, w)

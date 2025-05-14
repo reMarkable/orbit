@@ -10,7 +10,9 @@ func TestRouter_Get(t *testing.T) {
 	r := New()
 	r.Get("/test", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test handler"))
+		if _, err := w.Write([]byte("test handler")); err != nil {
+			panic(err)
+		}
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -32,7 +34,9 @@ func TestRouter_Parameter(t *testing.T) {
 	r.Get("/user/:id", func(w http.ResponseWriter, r *http.Request) {
 		id := GetParameter(r.Context(), "id")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("user id: " + id))
+		if _, err := w.Write([]byte("user id: " + id)); err != nil {
+			panic(err)
+		}
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/user/123", nil)
