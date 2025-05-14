@@ -41,11 +41,8 @@
     },
     {
       "description": "Update orbit image version right away",
-      "matchDatasources": [
-        "docker"
-      ],
       "matchPackageNames": [
-        "orbit"
+        "ghcr.io/reMarkable/orbit"
       ],
       "schedule": ["at any time"]
     }
