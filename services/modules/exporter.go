@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 )
 
@@ -58,7 +59,7 @@ func (h *MetricsHandler) Metrics(w http.ResponseWriter, r *http.Request) {
 	h.writeMeta(w, MetricTypeCounter, "Total number of downloads", "download_count")
 	for module, count := range h.metrics.downloadCount {
 		meta := strings.Split(module, "/")
-		h.writeMetrics(w, "download_count", map[string]string{"module": meta[1], "namespace": meta[0], "version": meta[2]}, count)
+		h.writeMetrics(w, "download_count", map[string]string{"namespace": meta[0], "module": meta[1], "version": meta[2]}, count)
 	}
 }
 
@@ -68,12 +69,18 @@ func (h *MetricsHandler) writeMeta(w http.ResponseWriter, metricType MetricType,
 }
 
 func (h *MetricsHandler) writeMetrics(w http.ResponseWriter, metric string, labels map[string]string, value int) {
-	meta := fmt.Sprintf("%s{", metric)
-	for k, v := range labels {
-		meta += fmt.Sprintf("%s=\"%s\",", k, v)
+	m := fmt.Sprintf("%s{", metric)
+	var keys []string
+	for k := range labels {
+		keys = append(keys, k)
 	}
-	meta = meta[:len(meta)-1] + fmt.Sprintf("} %d\n", value)
-	_, err := w.Write([]byte(meta))
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := labels[k]
+		m += fmt.Sprintf("%s=\"%s\",", k, v)
+	}
+	m = m[:len(m)-1] + fmt.Sprintf("} %d\n", value)
+	_, err := w.Write([]byte(m))
 	if err != nil {
 		slog.Error("write error", "err", err)
 	}
