@@ -1,4 +1,4 @@
-FROM docker.io/library/golang:1.24-alpine AS build
+FROM docker.io/library/golang:1.25-alpine AS build
 ARG entrypoint="./cmd/server"
 
 WORKDIR /app
