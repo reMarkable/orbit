@@ -45,6 +45,7 @@ type Logger interface {
 type Repository interface {
 	ListVersions(ctx context.Context, owner, repo, module string) ([]string, error)
 	ProxyDownload(ctx context.Context, owner, repo, module, version string, w io.Writer) error
+	RepoHead(ctx context.Context, owner, repo string) error
 }
 
 func NewHTTP(cfg Config, log Logger, r Repository, mh *MetricsHandler) (*Handler, error) {

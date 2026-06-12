@@ -62,7 +62,7 @@ func (s *Service) ListVersions(ctx context.Context, system, repo, module string)
 	)
 	for {
 		uri := fmt.Sprintf("repos/%s/%s/tags?per_page=%d&page=%d", owner, repo, tagsPerPage, page)
-		res, err := s.makeRequest(ctx, uri)
+		res, err := s.makeRequest(ctx, http.MethodGet, uri)
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +101,7 @@ func (s *Service) ProxyDownload(ctx context.Context, system, repo, module, versi
 	}
 
 	uri := fmt.Sprintf("repos/%s/%s/tarball/refs/tags/%s/%s", owner, repo, module, version)
-	body, err := s.makeRequest(ctx, uri)
+	body, err := s.makeRequest(ctx, http.MethodGet, uri)
 	if err != nil {
 		return err
 	}
@@ -143,9 +143,29 @@ func (s *Service) ProxyDownload(ctx context.Context, system, repo, module, versi
 	return nil
 }
 
-func (s *Service) makeRequest(ctx context.Context, uri string) (io.ReadCloser, error) {
+func (s *Service) RepoHead(ctx context.Context, system, repo string) error {
+	owner := s.mapOrg(system)
+	if err := s.validRepo(owner, repo); err != nil {
+		return err
+	}
+
+	uri := fmt.Sprintf("repos/%s/%s", owner, repo)
+	res, err := s.makeRequest(ctx, http.MethodHead, uri)
+	if err != nil {
+		return err
+	}
+
+	cerr := res.Close()
+	if cerr != nil {
+		return fmt.Errorf("closing response: %w", cerr)
+	}
+
+	return nil
+}
+
+func (s *Service) makeRequest(ctx context.Context, method, uri string) (io.ReadCloser, error) {
 	url := fmt.Sprintf("https://api.github.com/%s", uri)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("new request: %w", err)
 	}

@@ -13,6 +13,7 @@ release process.
 | -------------------------- | -------- | ------- | -------- | -------------------------------------- |
 | MODULES_PROXY_SECRET       | []byte   |         | Yes      | Secret key for proxy token encryption. |
 | CACHE_ENABLED              | bool     |         | No       | Enable or disable caching.             |
+| CACHE_AUTH_DISABLED        | bool     |         | No       | Disable auth for cached requests.      |
 | CACHE_PATH                 | string   | /tmp    | No       | Path to store cache files.             |
 | CACHE_EXPIRATION           | duration | 10s     | No       | Cache expiration duration.             |
 | GITHUB_REPOSITORIES        | map      |         | No       | Allowed repositories (per org).        |
@@ -40,7 +41,7 @@ release process.
 - Some variables (like maps) may require specific formatting (e.g., JSON or comma-separated values).
 - MODULES_PROXY_SECRET must be a base64-encoded 16, 24 or 32-byte key for AES encryption.
 
-# Deployment
+## Deployment
 
 Orbit can easily be deployed using Docker, or by just running the binary
 provided in the release. If you want to deploy using Kubernetes, we're providing

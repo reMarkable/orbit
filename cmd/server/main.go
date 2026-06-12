@@ -21,9 +21,10 @@ import (
 
 type config struct {
 	Cache struct {
-		Enabled    bool          `envconfig:"ENABLED"`
-		Path       string        `envconfig:"PATH" default:"/tmp"`
-		Expiration time.Duration `envconfig:"EXPIRATION" default:"10s"`
+		Enabled      bool          `envconfig:"ENABLED"`
+		AuthDisabled bool          `envconfig:"AUTH_DISABLED"`
+		Path         string        `envconfig:"PATH" default:"/tmp"`
+		Expiration   time.Duration `envconfig:"EXPIRATION" default:"10s"`
 	} `envconfig:"CACHE_"`
 	Github  github.Config  `envconfig:"GITHUB_"`
 	Modules modules.Config `envconfig:"MODULES_"`
@@ -42,12 +43,16 @@ func main() {
 	})
 
 	if cfg.Cache.Enabled {
-		log.Info("enabling cache", "path", cfg.Cache.Path, "expiration", cfg.Cache.Expiration)
+		log.Info("enabling cache", "path", cfg.Cache.Path, "expiration", cfg.Cache.Expiration, "authDisabled", cfg.Cache.AuthDisabled)
+		if cfg.Cache.AuthDisabled {
+			log.Warn("auth is disabled for cached request. This is dangerous when used with private repos, or in environments with no other access control mechanisms in place")
+		}
 		repo = modules.NewCache(
 			repo,
 			mcache.New[string, []string](cfg.Cache.Expiration),
 			modules.StoreInPath(cfg.Cache.Path),
 			log,
+			cfg.Cache.AuthDisabled,
 		)
 	}
 

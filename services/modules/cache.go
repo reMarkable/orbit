@@ -23,20 +23,36 @@ type FileStorage interface {
 	Create(filename string) (io.WriteCloser, error)
 }
 
-func NewCache(r Repository, s KeyValueStore, f FileStorage, l Logger) *Cache {
-	return &Cache{f, l, r, s}
+func NewCache(r Repository, s KeyValueStore, f FileStorage, l Logger, authDisabled bool) *Cache {
+	return &Cache{f, l, r, s, authDisabled}
 }
 
 type Cache struct {
-	files FileStorage
-	log   Logger
-	repo  Repository
-	store KeyValueStore
+	files        FileStorage
+	log          Logger
+	repo         Repository
+	store        KeyValueStore
+	authDisabled bool
+}
+
+// RepoHead is used to check if we can access the repository in a cheap way.
+func (c *Cache) RepoHead(ctx context.Context, owner, repo string) error {
+	if c.authDisabled {
+		return nil
+	}
+
+	return c.repo.RepoHead(ctx, owner, repo)
 }
 
 func (c *Cache) ListVersions(ctx context.Context, owner, repo, module string) ([]string, error) {
 	key := fmt.Sprintf("%s-%s-%s", owner, repo, module)
 	if v, ok := c.store.Get(key); ok {
+
+		err := c.RepoHead(ctx, owner, repo)
+		if err != nil {
+			return nil, err
+		}
+
 		return v, nil
 	}
 
@@ -55,12 +71,25 @@ func (c *Cache) ProxyDownload(ctx context.Context, owner, repo, module, version 
 		// If we just fail to open the cached file, we'll just log the error and
 		// then re-download it from the repository as usual.
 		c.log.Error("failed to open cached file", "err", err)
-	} else if _, err := io.Copy(w, r); err != nil {
-		// Since the copy operation failed, we may have partially copied the
-		// file, so there's no point in trying to read the original.
-		c.log.Error("failed to copy cached file", "err", err)
-		return err
 	} else {
+		defer func() {
+			if err := r.Close(); err != nil {
+				slog.Error("failed to close cached file", "err", err)
+			}
+		}()
+
+		// Verify repository access before writing any cached content to the
+		// response, otherwise we may leak the cached file to callers who do
+		// not have access to the repository.
+		if err := c.RepoHead(ctx, owner, repo); err != nil {
+			return err
+		}
+
+		if _, err := io.Copy(w, r); err != nil {
+			c.log.Error("failed to copy cached file", "err", err)
+			return err
+		}
+
 		// At this point we have copied the cached file, so we are done.
 		return nil
 	}
