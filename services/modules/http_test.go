@@ -143,6 +143,12 @@ func (m *mockRepository) ProxyDownload(ctx context.Context, owner, repo, module,
 	return m.err
 }
 
+func (m *mockRepository) RepoHead(ctx context.Context, owner, repo string) error {
+	m.owner.Got(owner)
+	m.repo.Got(repo)
+	return m.err
+}
+
 func (m *mockRepository) validate(t *testing.T) {
 	t.Helper()
 
