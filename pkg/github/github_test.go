@@ -6,9 +6,12 @@ import (
 	"compress/gzip"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
+
+	"github.com/reMarkable/orbit/pkg/mcache"
 )
 
 type mockHTTPClient struct {
@@ -40,7 +43,7 @@ func TestService_ListVersions(t *testing.T) {
 	cfg := Config{
 		OrgMappings: map[string]string{"test-system": "test-org"},
 	}
-	service := New(cfg, mockClient)
+	service := New(cfg, mockClient, mcache.New[string, []string](mcache.NoExpiration))
 
 	versions, err := service.ListVersions(context.Background(), "test-system", "test-repo", "module")
 	if err != nil {
@@ -97,7 +100,7 @@ func TestService_ProxyDownload(t *testing.T) {
 	cfg := Config{
 		OrgMappings: map[string]string{"test-system": "test-org"},
 	}
-	service := New(cfg, mockClient)
+	service := New(cfg, mockClient, mcache.New[string, []string](mcache.NoExpiration))
 
 	var buf bytes.Buffer
 	err := service.ProxyDownload(context.Background(), "test-system", "test-repo", "module", "v1.0.0", &buf)
@@ -124,5 +127,100 @@ func TestService_ProxyDownload(t *testing.T) {
 	expectedContent := "fake tarball content"
 	if !bytes.Contains(tarBuf.Bytes(), []byte(expectedContent)) {
 		t.Errorf("expected tarball to contain %q, but it was %q", expectedContent, tarBuf.Bytes())
+	}
+}
+
+func TestService_ListVersions_CachesTagsPerRepo(t *testing.T) {
+	var calls int
+	mockClient := &mockHTTPClient{
+		doFunc: func(req *http.Request) (*http.Response, error) {
+			if req.URL.Path == "/repos/test-org/test-repo/tags" {
+				calls++
+				body := `[
+					{"name": "module/v1.0.0"},
+					{"name": "other/v2.0.0"}
+				]`
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader([]byte(body))),
+				}, nil
+			}
+			return nil, errors.New("unexpected request")
+		},
+	}
+
+	cfg := Config{
+		OrgMappings: map[string]string{"test-system": "test-org"},
+	}
+	service := New(cfg, mockClient, mcache.New[string, []string](mcache.NoExpiration))
+
+	// First call for "module" should hit the API.
+	if _, err := service.ListVersions(context.Background(), "test-system", "test-repo", "module"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Second call for a different module in the same repo should be served from
+	// the cache without hitting the API again.
+	other, err := service.ListVersions(context.Background(), "test-system", "test-repo", "other")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if calls != 1 {
+		t.Fatalf("expected tags endpoint to be called once, got %d", calls)
+	}
+
+	if len(other) != 1 || other[0] != "v2.0.0" {
+		t.Errorf("expected cached tags to yield [v2.0.0], got %v", other)
+	}
+}
+
+func TestService_ListVersions_Pagination(t *testing.T) {
+	// Build a first page with exactly tagsPerPage entries to force a second request.
+	var firstPage bytes.Buffer
+	firstPage.WriteString("[")
+	for i := 0; i < tagsPerPage; i++ {
+		if i > 0 {
+			firstPage.WriteString(",")
+		}
+		fmt.Fprintf(&firstPage, `{"name": "filler/v0.0.%d"}`, i)
+	}
+	firstPage.WriteString("]")
+
+	mockClient := &mockHTTPClient{
+		doFunc: func(req *http.Request) (*http.Response, error) {
+			if req.URL.Path != "/repos/test-org/test-repo/tags" {
+				return nil, errors.New("unexpected request")
+			}
+			switch req.URL.Query().Get("page") {
+			case "1":
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader(firstPage.Bytes())),
+				}, nil
+			case "2":
+				body := `[{"name": "module/v1.0.0"}]`
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader([]byte(body))),
+				}, nil
+			default:
+				return nil, errors.New("unexpected page")
+			}
+		},
+	}
+
+	cfg := Config{
+		OrgMappings: map[string]string{"test-system": "test-org"},
+	}
+	service := New(cfg, mockClient, mcache.New[string, []string](mcache.NoExpiration))
+
+	versions, err := service.ListVersions(context.Background(), "test-system", "test-repo", "module")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(versions) != 1 || versions[0] != "v1.0.0" {
+		t.Errorf("expected [v1.0.0] across pages, got %v", versions)
 	}
 }

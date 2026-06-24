@@ -24,7 +24,7 @@ type config struct {
 		Enabled      bool          `envconfig:"ENABLED"`
 		AuthDisabled bool          `envconfig:"AUTH_DISABLED"`
 		Path         string        `envconfig:"PATH" default:"/tmp"`
-		Expiration   time.Duration `envconfig:"EXPIRATION" default:"10s"`
+		Expiration   time.Duration `envconfig:"EXPIRATION" default:"1m"`
 	} `envconfig:"CACHE_"`
 	Github  github.Config  `envconfig:"GITHUB_"`
 	Modules modules.Config `envconfig:"MODULES_"`
@@ -37,10 +37,21 @@ func main() {
 
 	log := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
+	var cache modules.KeyValueStore
+	if cfg.Cache.Enabled {
+		c := mcache.New[string, []string](cfg.Cache.Expiration)
+		if cfg.Cache.Expiration > 0 {
+			// Start a cleanup loop to remove expired items from the cache periodically.
+			stop := mcache.StartCleanupLoop(c, cfg.Cache.Expiration)
+			defer stop()
+		}
+		cache = c
+	}
+
 	var repo modules.Repository
 	repo = github.New(cfg.Github, &http.Client{
 		Timeout: 5 * time.Second,
-	})
+	}, cache)
 
 	if cfg.Cache.Enabled {
 		log.Info("enabling cache", "path", cfg.Cache.Path, "expiration", cfg.Cache.Expiration, "authDisabled", cfg.Cache.AuthDisabled)
@@ -49,7 +60,7 @@ func main() {
 		}
 		repo = modules.NewCache(
 			repo,
-			mcache.New[string, []string](cfg.Cache.Expiration),
+			cache,
 			modules.StoreInPath(cfg.Cache.Path),
 			log,
 			cfg.Cache.AuthDisabled,
