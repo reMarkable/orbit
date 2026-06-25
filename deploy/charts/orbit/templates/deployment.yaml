@@ -77,8 +77,12 @@ spec:
           envFrom: 
             - secretRef:
                 name: {{ .Values.github.token_secret }}
-            {{- if .Values.extraSecretsMounts.enabled }}
+            {{- if or .Values.extraSecretsMounts.enabled .Values.cache.enabled }}
           volumeMounts:
+            {{- if .Values.cache.enabled }}
+            - name: cache
+              mountPath: {{ .Values.cache.path }}
+            {{- end }}
             {{- range .Values.extraSecretsMounts.secrets }}
             - name: {{ .name }}
               mountPath: {{ .mountPath }}
@@ -86,8 +90,12 @@ spec:
             {{- end }}
             {{- end }}
           {{- end }}
-        {{- if .Values.extraSecretsMounts.enabled }}
+        {{- if or .Values.extraSecretsMounts.enabled .Values.cache.enabled }}
       volumes:
+        {{- if .Values.cache.enabled }}
+        - name: cache
+          emptyDir: {}
+        {{- end }}
         {{- range .Values.extraSecretsMounts.secrets }}
         {{- if .secretName }}
         - name: {{ .name }}
