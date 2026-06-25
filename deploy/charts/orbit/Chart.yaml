@@ -2,7 +2,7 @@ apiVersion: v2
 name: orbit
 description: A small proxy to turn a Github mono-repo into a Terraform module registry.
 type: application
-version: 0.2.0
+version: 0.2.1
 # renovate: image=ghcr.io/reMarkable/orbit
 appVersion: "v0.2.0"
 maintainers:
