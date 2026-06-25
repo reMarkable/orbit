@@ -57,7 +57,7 @@ spec:
               value: "true"
             - name: CACHE_PATH
               value: "{{ .Values.cache.path }}"
-            - name: CACHE_EXPIRY
+            - name: CACHE_EXPIRATION
               value: "{{ .Values.cache.expiry }}"
             {{- end }}
             {{- if .Values.metrics.enabled }}
