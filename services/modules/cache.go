@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"time"
 )
@@ -67,20 +66,16 @@ func (c *Cache) ListVersions(ctx context.Context, owner, repo, module string) ([
 
 func (c *Cache) ProxyDownload(ctx context.Context, owner, repo, module, version string, w io.Writer) error {
 	filename := fmt.Sprintf("%s-%s-%s-%s.tar.gz", owner, repo, module, version)
-	if r, err := c.files.Open(filename); err != nil {
-		// If we just fail to open the cached file, we'll just log the error and
-		// then re-download it from the repository as usual.
-		c.log.Error("failed to open cached file", "err", err)
-	} else {
-		defer func() {
-			if err := r.Close(); err != nil {
-				slog.Error("failed to close cached file", "err", err)
-			}
-		}()
 
-		// Verify repository access before writing any cached content to the
-		// response, otherwise we may leak the cached file to callers who do
-		// not have access to the repository.
+	r, err := c.files.Open(filename)
+	if err == nil {
+		// If we were able to open the cached file without any errors,
+		// we can just copy it to the response and return.
+		defer closer(r, c.log, "failed to close read cached file")
+
+		// But first we need to verify repository access before writing any
+		// cached content to the response, otherwise we may leak the cached
+		// file to callers who do not have access to the repository.
 		if err := c.RepoHead(ctx, owner, repo); err != nil {
 			return err
 		}
@@ -94,16 +89,17 @@ func (c *Cache) ProxyDownload(ctx context.Context, owner, repo, module, version 
 		return nil
 	}
 
-	if cw, err := c.files.Create(filename); err != nil {
+	// If we failed to open the cached file, we'll just continue
+	// and then re-download it from the re	pository as usual.
+	c.log.Info("failed to open cached file", "err", err)
+
+	cw, err := c.files.Create(filename)
+	if err != nil {
 		// If we fail to create a cache file, we'll just proxy download directly
 		// from the repository without caching.
 		c.log.Error("failed to create cached file", "err", err)
 	} else {
-		defer func() {
-			if err := cw.Close(); err != nil {
-				slog.Error("failed to close cached file", "err", err)
-			}
-		}()
+		defer closer(cw, c.log, "failed to close created cached file")
 		w = io.MultiWriter(w, cw)
 	}
 	return c.repo.ProxyDownload(ctx, owner, repo, module, version, w)
@@ -124,4 +120,11 @@ func (s StoreInPath) Create(filename string) (io.WriteCloser, error) {
 
 func (s StoreInPath) path(filename string) string {
 	return fmt.Sprintf("%s/%s", s, filename)
+}
+
+// closer simply closes the closer and logs any errors.
+func closer(c io.Closer, log Logger, msg string) {
+	if err := c.Close(); err != nil {
+		log.Error(msg, "err", err)
+	}
 }
