@@ -2,6 +2,19 @@ apiVersion: v1
 entries:
   orbit:
   - apiVersion: v2
+    appVersion: v0.2.1
+    created: "2026-08-18T09:51:13.30776091Z"
+    description: A small proxy to turn a Github mono-repo into a Terraform module
+      registry.
+    digest: b68b48aee76b8a2034f327cf1de63e6f9db50c5188ef309a265256c8d1ffcf1e
+    maintainers:
+    - name: marcusramberg
+    name: orbit
+    type: application
+    urls:
+    - https://github.com/reMarkable/orbit/releases/download/chart-orbit-0.2.2/orbit-0.2.2.tgz
+    version: 0.2.2
+  - apiVersion: v2
     appVersion: v0.2.0
     created: "2026-06-25T08:43:49.528956023Z"
     description: A small proxy to turn a Github mono-repo into a Terraform module
@@ -138,4 +151,4 @@ entries:
     urls:
     - https://github.com/reMarkable/orbit/releases/download/orbit-0.0.1/orbit-0.0.1.tgz
     version: 0.0.1
-generated: "2026-06-25T08:43:49.529014153Z"
+generated: "2026-08-18T09:51:13.307790459Z"
