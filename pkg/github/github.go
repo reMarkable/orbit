@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/reMarkable/orbit/pkg/auth"
 )
@@ -36,16 +37,39 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-func New(cfg Config, c HTTPClient) *Service {
+// TagCache caches the aggregated tag names of a repository, keyed by
+// "owner/repo", to avoid re-paginating all tags on every request.
+type TagCache interface {
+	Get(key string) ([]string, bool)
+	Set(key string, value []string, d ...time.Duration)
+}
+
+// noopTagCache is a cache that never stores anything. It satisfies the same Get/Set
+// interface as Cache and can be used to disable caching
+type noopTagCache struct{}
+
+// Get always reports a miss.
+func (noopTagCache) Get(string) ([]string, bool) { return nil, false }
+
+// Set discards the value.
+func (noopTagCache) Set(string, []string, ...time.Duration) {}
+
+func New(cfg Config, c HTTPClient, cache TagCache) *Service {
+	if cache == nil {
+		cache = noopTagCache{}
+	}
+
 	return &Service{
 		cfg:    cfg,
 		client: c,
+		cache:  cache,
 	}
 }
 
 type Service struct {
 	cfg    Config
 	client HTTPClient
+	cache  TagCache
 }
 
 // https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#list-repository-tags
@@ -55,10 +79,34 @@ func (s *Service) ListVersions(ctx context.Context, system, repo, module string)
 		return nil, err
 	}
 
+	tags, err := s.listTags(ctx, owner, repo)
+	if err != nil {
+		return nil, err
+	}
+
+	prefix := module + "/"
+	versions := []string{}
+	for _, name := range tags {
+		if strings.HasPrefix(name, prefix) {
+			versions = append(versions, strings.TrimPrefix(name, prefix))
+		}
+	}
+	return versions, nil
+}
+
+// listTags returns the names of all tags in the repository, fetching every page
+// from the GitHub API. When a cache is configured, results are cached per
+// repository to avoid re-paginating all tags on subsequent requests within the
+// cache expiration window.
+func (s *Service) listTags(ctx context.Context, owner, repo string) ([]string, error) {
+	key := owner + "/" + repo
+	if tags, ok := s.cache.Get(key); ok {
+		return tags, nil
+	}
+
 	var (
-		page     = 1
-		prefix   = module + "/"
-		versions = []string{}
+		page = 1
+		tags = []string{}
 	)
 	for {
 		uri := fmt.Sprintf("repos/%s/%s/tags?per_page=%d&page=%d", owner, repo, tagsPerPage, page)
@@ -67,10 +115,10 @@ func (s *Service) ListVersions(ctx context.Context, system, repo, module string)
 			return nil, err
 		}
 
-		var tags []struct {
+		var batch []struct {
 			Name string `json:"name"`
 		}
-		err = json.NewDecoder(res).Decode(&tags)
+		err = json.NewDecoder(res).Decode(&batch)
 		cerr := res.Close()
 		if cerr != nil {
 			return nil, fmt.Errorf("closing response: %w", cerr)
@@ -80,18 +128,18 @@ func (s *Service) ListVersions(ctx context.Context, system, repo, module string)
 			return nil, fmt.Errorf("decoding response: %w", err)
 		}
 
-		for _, tag := range tags {
-			if strings.HasPrefix(tag.Name, prefix) {
-				versions = append(versions, strings.TrimPrefix(tag.Name, prefix))
-			}
+		for _, tag := range batch {
+			tags = append(tags, tag.Name)
 		}
 
-		if len(tags) < tagsPerPage {
+		if len(batch) < tagsPerPage {
 			break
 		}
 		page++
 	}
-	return versions, nil
+
+	s.cache.Set(key, tags)
+	return tags, nil
 }
 
 func (s *Service) ProxyDownload(ctx context.Context, system, repo, module, version string, w io.Writer) error {
