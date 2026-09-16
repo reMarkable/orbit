@@ -4,6 +4,6 @@ description: A small proxy to turn a Github mono-repo into a Terraform module re
 type: application
 version: 0.2.2
 # renovate: image=ghcr.io/reMarkable/orbit
-appVersion: "v0.2.1"
+appVersion: "v0.2.2"
 maintainers:
   - name: marcusramberg
